@@ -1,0 +1,319 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>KAVACH Ground Control Station</title>
+<meta name="description" content="Operator console for KAVACH-07, an indigenous unmanned ground vehicle. Simulation prototype." />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700&family=Barlow+Semi+Condensed:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&family=Noto+Sans+Devanagari:wght@600&display=swap" />
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cpath d='M16 2 4 7v10c0 7 5 11.7 12 13 7-1.3 12-6 12-13V7z' fill='%23131a13' stroke='%23E4903C' stroke-width='2'/%3E%3C/svg%3E" />
+</head>
+<body>
+<div class="shell">
+
+  <!-- ═══════════ COMMAND HEADER ═══════════ -->
+  <header class="hdr">
+    <div class="hdr-id">
+      <svg class="mark" viewBox="0 0 40 44" aria-hidden="true">
+        <path class="mk-shield" d="M20 2 4 8.5v14.2C4 32.4 10.6 39.4 20 42c9.4-2.6 16-9.6 16-19.3V8.5z"/>
+        <path class="mk-inner" d="M20 7 8.5 11.7v11c0 7.3 4.9 12.7 11.5 14.8 6.6-2.1 11.5-7.5 11.5-14.8v-11z"/>
+        <path class="mk-k" d="M14.5 14v16M14.5 22.4 24 14M17.6 20.2 25.5 30"/>
+        <path class="mk-tick" d="M20 4.4v3M20 39v2.4"/>
+      </svg>
+      <div class="id-txt">
+        <div class="brand">KAVACH<i class="dev">कवच</i></div>
+        <div class="brand-sub">INDIGENOUS UGV<span class="prog">PROG. KV-07</span></div>
+      </div>
+    </div>
+
+    <div class="hdr-title">
+      <div class="t-main">KAVACH GROUND CONTROL STATION</div>
+      <div class="t-sub"><b>KAVACH-07</b><em>INDIGENOUS UNMANNED GROUND VEHICLE</em><span class="hull">HULL 0742-A</span></div>
+    </div>
+
+    <div class="hdr-stat">
+      <div class="chip chip-link"><span class="dot dot-live"></span><div class="chip-txt"><span class="chip-k">VEHICLE LINK</span><span class="chip-v" data-v="linkState">ACTIVE</span></div></div>
+      <div class="chip"><div class="chip-txt"><span class="chip-k">GNSS</span><span class="chip-v" data-v="satHdr">12 SAT</span></div></div>
+      <div class="chip"><div class="chip-txt"><span class="chip-k">DATA LINK</span><span class="chip-v" data-v="linkPctHdr">98%</span></div></div>
+      <div class="chip"><div class="chip-txt"><span class="chip-k">SYSTEM TIME</span><span class="chip-v mono" data-v="sysTime">--:--:--</span></div></div>
+      <div class="chip"><div class="chip-txt"><span class="chip-k">SESSION</span><span class="chip-v mono" data-v="sessTime">00:00:00</span></div></div>
+      <div class="chip chip-sim"><span class="dot dot-sim"></span><div class="chip-txt"><span class="chip-k">MODE</span><span class="chip-v">SIMULATION</span></div></div>
+    </div>
+  </header>
+
+  <!-- ═══════════ MAIN CONSOLE ═══════════ -->
+  <main class="main">
+
+    <!-- ── LEFT: VEHICLE HEALTH ── -->
+    <aside class="rail rail-l" id="railL">
+      <nav class="rail-tabs" role="tablist" aria-label="Vehicle health sections">
+        <button class="rtab is-on" data-sec="power" role="tab" aria-selected="true">POWER</button>
+        <button class="rtab" data-sec="thermal" role="tab" aria-selected="false">THERMAL</button>
+        <button class="rtab" data-sec="nav" role="tab" aria-selected="false">NAV</button>
+        <button class="rtab" data-sec="comm" role="tab" aria-selected="false">COMM</button>
+        <button class="rtab" data-sec="subs" role="tab" aria-selected="false">SUBSYS</button>
+      </nav>
+
+      <div class="rail-scroll">
+        <section class="sec is-on" data-sec="power">
+          <div class="sec-hd"><h2>BATTERY</h2><span class="sec-tag" data-v="packTag">LI-ION 14S</span></div>
+          <div class="pack">
+            <div class="pack-soc"><span class="soc-n" data-v="soc">82</span><span class="soc-u">%</span></div>
+            <div class="pack-side">
+              <div class="pack-bar"><i data-w="socBar" style="width:82%"></i><u style="left:20%"></u><u style="left:40%"></u><u style="left:60%"></u><u style="left:80%"></u></div>
+              <div class="pack-meta"><span data-v="packHealth">HEALTH 97%</span><span data-v="packCycles">CYC 412</span></div>
+            </div>
+          </div>
+          <div class="grid2">
+            <div class="kv"><span class="k">VOLTAGE</span><span class="v mono" data-v="volt">51.8 V</span></div>
+            <div class="kv"><span class="k">CURRENT</span><span class="v mono" data-v="amp">-14.2 A</span></div>
+            <div class="kv"><span class="k">POWER</span><span class="v mono" data-v="watt">736 W</span></div>
+            <div class="kv"><span class="k">EST. RUNTIME</span><span class="v mono" data-v="runtime">02:41</span></div>
+          </div>
+          <div class="bars">
+            <div class="bar-row"><span class="k">CELL BALANCE</span><span class="bar"><i data-w="cellBar" style="width:94%"></i></span><span class="v mono" data-v="cellDelta">18 mV</span></div>
+            <div class="bar-row"><span class="k">REGEN</span><span class="bar"><i data-w="regenBar" style="width:6%"></i></span><span class="v mono" data-v="regen">0.0 A</span></div>
+          </div>
+        </section>
+
+        <section class="sec" data-sec="thermal">
+          <div class="sec-hd"><h2>THERMAL</h2><span class="sec-tag" data-v="thermTag">NOMINAL</span></div>
+          <div class="therm" data-v-list="therm"></div>
+        </section>
+
+        <section class="sec" data-sec="nav">
+          <div class="sec-hd"><h2>NAVIGATION</h2><span class="sec-tag">INS + GNSS</span></div>
+          <div class="grid2">
+            <div class="kv"><span class="k">HEADING</span><span class="v mono" data-v="hdg">084°</span></div>
+            <div class="kv"><span class="k">SPEED</span><span class="v mono" data-v="spd">18.4 km/h</span></div>
+            <div class="kv"><span class="k">ALTITUDE</span><span class="v mono" data-v="alt">31.8 m</span></div>
+            <div class="kv"><span class="k">ODOMETER</span><span class="v mono" data-v="odo">0.00 km</span></div>
+          </div>
+          <div class="attitude">
+            <div class="att-gauge"><svg viewBox="0 0 120 60" class="ah"><clipPath id="ahclip"><rect x="0" y="0" width="120" height="60" rx="2"/></clipPath><g clip-path="url(#ahclip)"><g id="ahHorizon"><rect x="-80" y="-90" width="280" height="120" class="ah-sky"/><rect x="-80" y="30" width="280" height="120" class="ah-gnd"/><line x1="-80" y1="30" x2="200" y2="30" class="ah-line"/><line x1="40" y1="14" x2="80" y2="14" class="ah-tick"/><line x1="46" y1="46" x2="74" y2="46" class="ah-tick"/></g><path d="M44 30h14M62 30h14M60 26v8" class="ah-craft"/></g></svg></div>
+            <div class="att-kv">
+              <div class="kv"><span class="k">PITCH</span><span class="v mono" data-v="pitch">+1.2°</span></div>
+              <div class="kv"><span class="k">ROLL</span><span class="v mono" data-v="roll">-0.6°</span></div>
+              <div class="kv"><span class="k">SLIP</span><span class="v mono" data-v="slip">0.3%</span></div>
+            </div>
+          </div>
+          <div class="sec-hd sub"><h3>GNSS</h3><span class="sec-tag" data-v="fixTag">3D FIX / RTK-FLOAT</span></div>
+          <div class="grid2">
+            <div class="kv"><span class="k">SATELLITES</span><span class="v mono" data-v="sats">12</span></div>
+            <div class="kv"><span class="k">HDOP</span><span class="v mono" data-v="hdop">0.8</span></div>
+            <div class="kv"><span class="k">ACCURACY</span><span class="v mono" data-v="acc">±2.4 m</span></div>
+            <div class="kv"><span class="k">CONSTEL.</span><span class="v mono">NAVIC+GPS</span></div>
+          </div>
+        </section>
+
+        <section class="sec" data-sec="comm">
+          <div class="sec-hd"><h2>COMMUNICATION</h2><span class="sec-tag">MESH 2.4 / 5.8 GHz</span></div>
+          <div class="grid2">
+            <div class="kv"><span class="k">SIGNAL</span><span class="v mono" data-v="rssi">-61 dBm</span></div>
+            <div class="kv"><span class="k">LINK</span><span class="v mono" data-v="linkPct">98%</span></div>
+            <div class="kv"><span class="k">LATENCY</span><span class="v mono" data-v="latency">42 ms</span></div>
+            <div class="kv"><span class="k">PACKET LOSS</span><span class="v mono" data-v="loss">0.2%</span></div>
+          </div>
+          <div class="rssi-bars" data-v-list="rssiBars"></div>
+          <div class="grid2 tight">
+            <div class="kv"><span class="k">UPLINK</span><span class="v mono" data-v="up">1.2 Mb/s</span></div>
+            <div class="kv"><span class="k">DOWNLINK</span><span class="v mono" data-v="down">8.6 Mb/s</span></div>
+          </div>
+        </section>
+
+        <section class="sec" data-sec="subs">
+          <div class="sec-hd"><h2>SUBSYSTEMS</h2><span class="sec-tag" data-v="subsTag">6 / 6 OK</span></div>
+          <div class="subs" data-v-list="subs"></div>
+        </section>
+        <section class="sec sec-sum">
+          <div class="sec-hd"><h2>AT A GLANCE</h2><span class="sec-tag" data-v="glanceTag">NOMINAL</span></div>
+          <div class="glance">
+            <div class="gl"><span class="k">SPEED</span><b data-v="gSpd">0.0</b><i>km/h</i></div>
+            <div class="gl"><span class="k">HEADING</span><b data-v="gHdg">084</b><i>deg</i></div>
+            <div class="gl"><span class="k">BATTERY</span><b data-v="gSoc">82</b><i>%</i></div>
+            <div class="gl"><span class="k">DRIVE MAX</span><b data-v="gTemp">46</b><i>°C</i></div>
+            <div class="gl"><span class="k">LINK</span><b data-v="gLink">98</b><i>%</i></div>
+            <div class="gl"><span class="k">GNSS</span><b data-v="gSats">12</b><i>sat</i></div>
+          </div>
+        </section>
+      </div>
+    </aside>
+
+    <!-- ── CENTER: CAMERA + MAP ── -->
+    <div class="center">
+
+      <section class="panel cam">
+        <div class="panel-bar">
+          <h2>REALTIME CAMERA<span class="bar-note">FORWARD MAST</span></h2>
+          <div class="cam-tabs" role="tablist" aria-label="Camera feed">
+            <button class="ctab is-on" data-cam="cam1" role="tab" aria-selected="true">CAM 01</button>
+            <button class="ctab" data-cam="cam2" role="tab" aria-selected="false">CAM 02</button>
+            <button class="ctab" data-cam="thermal" role="tab" aria-selected="false">THERMAL</button>
+            <button class="ctab" data-cam="map" role="tab" aria-selected="false">MAP</button>
+          </div>
+        </div>
+
+        <div class="cam-stage" id="camStage">
+          <canvas id="gl"></canvas>
+          <canvas id="mapBig" class="map-big"></canvas>
+          <div class="cam-fx" aria-hidden="true"></div>
+          <svg class="reticle" viewBox="0 0 1000 560" preserveAspectRatio="none" aria-hidden="true">
+            <path class="ret-grid" d="M333 0v560M667 0v560M0 187h1000M0 373h1000"/>
+            <path class="ret-cross" d="M500 258v18M500 284v18M474 280h18M508 280h18"/>
+            <path class="ret-corner" d="M60 40h34M60 40v26M940 40h-34M940 40v26M60 520h34M60 520v-26M940 520h-34M940 520v-26"/>
+            <path class="ret-scale" d="M40 280h12M948 280h12M500 34v12M500 514v12"/>
+          </svg>
+
+          <div class="ov ov-tl">
+            <div class="ov-strong">KAVACH-07</div>
+            <div class="ov-line" data-v="camName">FRONT CAMERA</div>
+            <div class="ov-live"><span class="dot dot-rec"></span><span data-v="camLive">LIVE</span></div>
+          </div>
+
+          <div class="ov ov-tr">
+            <div class="ov-strong" data-v="camId">CAM 01</div>
+            <div class="ov-line" data-v="camRes">1080P</div>
+            <div class="ov-line" data-v="camFps">30 FPS</div>
+            <div class="ov-line dimmer" data-v="camLens">EFL 4.2mm f/1.8</div>
+          </div>
+
+          <div class="ov ov-status">
+            <span class="cs"><i class="dot dot-live"></i>VIDEO LINK<b data-v="vidLink">98%</b></span>
+            <span class="cs"><i class="dot dot-live"></i>SENSOR STREAM</span>
+            <span class="cs"><i class="dot dot-buf"></i>REC BUFFER<b data-v="recBuf">64%</b></span>
+            <span class="cs"><i class="dot dot-live"></i>FRAME LAT<b data-v="frameLat">42 ms</b></span>
+          </div>
+
+          <div class="ov ov-bottom">
+            <div class="ovb"><span class="ovb-k">TIME</span><span class="ovb-v mono" data-v="camTime">17:11:32 IST</span></div>
+            <div class="ovb"><span class="ovb-k">HEADING</span><span class="ovb-v mono" data-v="camHdg">084°</span></div>
+            <div class="ovb"><span class="ovb-k">SPEED</span><span class="ovb-v mono" data-v="camSpd">18.4 KM/H</span></div>
+            <div class="ovb"><span class="ovb-k">TEMPERATURE</span><span class="ovb-v mono" data-v="camTemp">43°C</span></div>
+            <div class="ovb"><span class="ovb-k">GPS FIX</span><span class="ovb-v mono" data-v="camFix">3D</span></div>
+            <div class="ovb ovb-sim"><span class="ovb-k">FEED</span><span class="ovb-v">SIMULATED</span></div>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel map">
+        <div class="panel-bar">
+          <h2>LIVE MAP<span class="bar-note" data-v="mapSector">SECTOR 4 · FIELD TEST RANGE</span></h2>
+          <div class="map-ctl">
+            <button class="mbtn mbtn-sq" data-map="zin" aria-label="Zoom in">+</button>
+            <button class="mbtn mbtn-sq" data-map="zout" aria-label="Zoom out">−</button>
+            <button class="mbtn" data-map="center">CENTER VEHICLE</button>
+            <button class="mbtn is-on" data-map="northup" aria-pressed="true">NORTH UP</button>
+            <button class="mbtn is-on" data-map="follow" aria-pressed="true">FOLLOW VEHICLE</button>
+          </div>
+        </div>
+        <div class="map-stage" id="mapStage">
+          <canvas id="map"></canvas>
+          <div class="ov ov-pos">
+            <div class="pos-hd">LIVE POSITION</div>
+            <div class="pos-co mono"><span data-v="lat">10.0124° N</span><span data-v="lon">76.2972° E</span></div>
+            <div class="pos-rw"><span>HEADING <b class="mono" data-v="mapHdg">084°</b></span><span>GNSS ACCURACY <b class="mono" data-v="mapAcc">±2.4 m</b></span></div>
+            <div class="pos-rw"><span>SPEED <b class="mono" data-v="mapSpd">18.4 km/h</b></span><span>TRACK <b class="mono" data-v="mapTrack">2.14 km</b></span></div>
+          </div>
+          <div class="ov ov-north"><svg viewBox="0 0 44 44" class="rose" id="rose"><circle cx="22" cy="22" r="19" class="rose-ring"/><g id="roseSpin"><path d="M22 5 26 22 22 19 18 22z" class="rose-n"/><path d="M22 39 18 22 22 25 26 22z" class="rose-s"/><path d="M22 8v-3M39 22h3M22 36v3M5 22H2" class="rose-t"/></g><text x="22" y="15" class="rose-lb">N</text></svg></div>
+          <div class="ov ov-scale"><div class="scale-bar"><i></i></div><span class="mono" data-v="mapScale">100 m</span></div>
+          <div class="ov ov-maplg"><span><i class="lg lg-veh"></i>KAVACH-07</span><span><i class="lg lg-tr"></i>BREADCRUMB</span><span><i class="lg lg-rd"></i>TRACK</span></div>
+        </div>
+      </section>
+    </div>
+
+    <!-- ── RIGHT: CONTROLLER ── -->
+    <aside class="rail rail-r">
+      <div class="rail-scroll">
+        <section class="sec sec-stick">
+          <div class="sec-hd"><h2>VIRTUAL CONTROLLER</h2><span class="sec-tag warn-tag">SIMULATED CONTROL INPUT</span></div>
+
+          <div class="stick-wrap">
+            <div class="stick" id="stick" tabindex="0" role="application" aria-label="Virtual joystick: arrow keys or WASD to drive, Escape to center">
+              <svg class="stick-marks" viewBox="0 0 200 200" aria-hidden="true">
+                <circle cx="100" cy="100" r="94" class="sm-rim"/>
+                <circle cx="100" cy="100" r="80" class="sm-ring"/>
+                <circle cx="100" cy="100" r="52" class="sm-ring"/>
+                <circle cx="100" cy="100" r="16" class="sm-dead"/>
+                <path class="sm-cross" d="M100 12v22M100 166v22M12 100h22M166 100h22"/>
+                <path class="sm-diag" d="M38 38l14 14M162 38l-14 14M38 162l14-14M162 162l-14-14"/>
+                <text x="100" y="9" class="sm-lb">FWD</text>
+                <text x="100" y="197" class="sm-lb">REV</text>
+                <text x="7" y="103" class="sm-lb sm-lb-l">L</text>
+                <text x="193" y="103" class="sm-lb sm-lb-r">R</text>
+              </svg>
+              <div class="stick-trace" id="stickTrace"></div>
+              <div class="knob" id="knob"><span class="knob-cap"></span><span class="knob-led"></span></div>
+            </div>
+          </div>
+
+          <div class="grid2 stick-read">
+            <div class="kv"><span class="k">STEER X</span><span class="v mono big" data-v="stickX">0.00</span></div>
+            <div class="kv"><span class="k">THROTTLE Y</span><span class="v mono big" data-v="stickY">0.00</span></div>
+          </div>
+          <div class="cmd-row"><span class="k">COMMAND</span><span class="cmd" data-v="command">NEUTRAL</span></div>
+          <button class="wbtn" id="centerInput">CENTER CONTROL INPUT</button>
+        </section>
+
+        <section class="sec">
+          <div class="sec-hd"><h2>CONTROL MODE</h2><span class="sec-tag" data-v="modeTag">OPERATOR</span></div>
+          <div class="modes" role="group" aria-label="Control mode">
+            <button class="mode is-on" data-mode="MANUAL">MANUAL</button>
+            <button class="mode" data-mode="ASSIST">ASSIST</button>
+            <button class="mode" data-mode="AUTO">AUTO</button>
+          </div>
+          <div class="mode-note" data-v="modeNote">DIRECT OPERATOR CONTROL · NO PATH ASSIST</div>
+          <div class="grid1">
+            <div class="kv"><span class="k">CONTROL LINK</span><span class="v ok" data-v="ctlLink">ACTIVE</span></div>
+            <div class="kv"><span class="k">INPUT STATE</span><span class="v" data-v="inputState">NEUTRAL</span></div>
+            <div class="kv"><span class="k">DEAD ZONE</span><span class="v mono">8%</span></div>
+            <div class="kv"><span class="k">SIM. SPEED LIMIT</span><span class="v mono" data-v="spdLimit">32 KM/H</span></div>
+          </div>
+        </section>
+
+        <section class="sec">
+          <div class="sec-hd"><h2>INPUT MONITOR</h2><span class="sec-tag" data-v="inpHz">50 Hz</span></div>
+          <div class="mon">
+            <div class="mon-row"><span class="k">STEER</span><span class="mbar mbar-c"><i id="barSteer"></i><u></u></span></div>
+            <div class="mon-row"><span class="k">THROTTLE</span><span class="mbar mbar-c"><i id="barThr"></i><u></u></span></div>
+            <div class="mon-row"><span class="k">TRACK L</span><span class="mbar mbar-c"><i id="barTL"></i><u></u></span></div>
+            <div class="mon-row"><span class="k">TRACK R</span><span class="mbar mbar-c"><i id="barTR"></i><u></u></span></div>
+          </div>
+          <div class="grid2 tight">
+            <div class="kv"><span class="k">CMD RATE</span><span class="v mono" data-v="cmdRate">50 Hz</span></div>
+            <div class="kv"><span class="k">E-STOP</span><span class="v ok">ARMED</span></div>
+          </div>
+          <div class="disclaim">NO REAL VEHICLE CONNECTION · INPUTS DRIVE THE ON-SCREEN SIMULATION ONLY</div>
+        </section>
+      </div>
+    </aside>
+  </main>
+
+  <!-- ═══════════ BOTTOM STRIP ═══════════ -->
+  <footer class="strip">
+    <section class="panel tel">
+      <div class="panel-bar"><h2>KAVACH <span class="slash">//</span> LIVE TELEMETRY<span class="bar-note">LAST 60 SEC</span></h2><span class="bar-tag">SIMULATED TELEMETRY</span></div>
+      <div class="graphs" id="graphs"></div>
+    </section>
+
+    <section class="panel log">
+      <div class="panel-bar"><h2>SYSTEM EVENTS</h2><span class="bar-tag" data-v="evtCount">0 REC</span></div>
+      <div class="log-list" id="log" role="log" aria-live="off"></div>
+    </section>
+
+    <section class="panel sens">
+      <div class="panel-bar"><h2>SENSOR STATUS</h2><span class="bar-tag" data-v="sensTag">8 ONLINE</span></div>
+      <div class="sens-list" data-v-list="sensors"></div>
+    </section>
+  </footer>
+
+  <div class="footbar">
+    <span class="fb-l"><b>SIMULATED TELEMETRY</b><i>PROTOTYPE BUILD 0.7.0</i><i>NO REAL VEHICLE CONNECTION</i></span>
+    <span class="fb-c" data-v="footState">KAVACH-07 · MANUAL · LINK ACTIVE</span>
+    <span class="fb-r">DESIGNED &amp; ENGINEERED IN INDIA</span>
+  </div>
+</div>
+<script type="module" src="/src/main.js"></script>
+</body>
+</html>

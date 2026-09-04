@@ -1,0 +1,18 @@
+{
+  "name": "kavach-gcs",
+  "private": true,
+  "version": "0.7.0",
+  "type": "module",
+  "description": "KAVACH Ground Control Station - operator console for the KAVACH-07 indigenous unmanned ground vehicle (simulation prototype)",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "three": "^0.169.0"
+  },
+  "devDependencies": {
+    "vite": "^5.4.10"
+  }
+}
