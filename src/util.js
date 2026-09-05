@@ -127,6 +127,11 @@ export function toLatLon(x, z) {
     lon: ORIGIN.lon + east / (111320 * Math.cos(rad(ORIGIN.lat))),
   };
 }
+export function fromLatLon(lat, lon) {
+  const north = (lat - ORIGIN.lat) * 111320;
+  const east = (lon - ORIGIN.lon) * 111320 * Math.cos(rad(ORIGIN.lat));
+  return { x: east, z: -north };
+}
 export const fmtLat = (v) => `${Math.abs(v).toFixed(4)}° ${v >= 0 ? 'N' : 'S'}`;
 export const fmtLon = (v) => `${Math.abs(v).toFixed(4)}° ${v >= 0 ? 'E' : 'W'}`;
 export const hhmmss = (sec) => `${pad(sec / 3600)}:${pad((sec / 60) % 60)}:${pad(sec % 60)}`;

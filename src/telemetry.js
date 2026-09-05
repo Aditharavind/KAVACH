@@ -1,14 +1,17 @@
 // ─── LIVE TELEMETRY strip ─────────────────────────────────────────────
 // Five 60-second engineering traces, sampled at 5 Hz off the vehicle model.
 
+import { palette } from './theme.js';
+
 const WINDOW = 60, RATE = 5, N = WINDOW * RATE;
 
+// series colours come from the active theme (index into palette.graph.series)
 const CHANNELS = [
-  { k: 'battery', label: 'BATTERY', unit: '%', dp: 1, color: '#95A85F', get: (v) => v.soc, span: 1.6 },
-  { k: 'temp', label: 'DRIVE TEMP', unit: '°C', dp: 1, color: '#D9A63F', get: (v) => Math.max(v.temps.driveA, v.temps.driveB), span: 6 },
-  { k: 'speed', label: 'SPEED', unit: 'km/h', dp: 1, color: '#E08B36', get: (v) => v.speed, fixed: [-14, 34] },
-  { k: 'rssi', label: 'SIGNAL', unit: 'dBm', dp: 0, color: '#7E9AA8', get: (v) => v.rssi, fixed: [-96, -40] },
-  { k: 'power', label: 'POWER', unit: 'W', dp: 0, color: '#8FA0B8', get: (v) => v.watt, fixed: [0, 1150] },
+  { k: 'battery', label: 'BATTERY', unit: '%', dp: 1, hue: 0, get: (v) => v.soc, span: 1.6 },
+  { k: 'temp', label: 'DRIVE TEMP', unit: '°C', dp: 1, hue: 1, get: (v) => Math.max(v.temps.driveA, v.temps.driveB), span: 6 },
+  { k: 'speed', label: 'SPEED', unit: 'km/h', dp: 1, hue: 2, get: (v) => v.speed, fixed: [-14, 34] },
+  { k: 'rssi', label: 'SIGNAL', unit: 'dBm', dp: 0, hue: 3, get: (v) => v.rssi, fixed: [-96, -40] },
+  { k: 'power', label: 'POWER', unit: 'W', dp: 0, hue: 4, get: (v) => v.watt, fixed: [0, 1150] },
 ];
 
 export class Telemetry {
@@ -80,7 +83,8 @@ export class Telemetry {
       }
       const yOf = (val) => h - 2 - ((val - lo) / (hi - lo)) * (h - 4);
 
-      ctx.strokeStyle = 'rgba(149,168,95,0.07)';
+      const col = palette.graph.series[c.hue];
+      ctx.strokeStyle = palette.graph.grid;
       ctx.lineWidth = 1;
       ctx.beginPath();
       for (let k = 1; k <= 3; k++) { const y = (h / 4) * k; ctx.moveTo(0, y); ctx.lineTo(w, y); }
@@ -99,8 +103,8 @@ export class Telemetry {
       ctx.lineTo(xOf(N - 1), h);
       ctx.closePath();
       const grad = ctx.createLinearGradient(0, 0, 0, h);
-      grad.addColorStop(0, c.color + '38');
-      grad.addColorStop(1, c.color + '00');
+      grad.addColorStop(0, col + palette.graph.fillAlpha);
+      grad.addColorStop(1, col + '00');
       ctx.fillStyle = grad; ctx.fill();
 
       ctx.beginPath();
@@ -108,14 +112,14 @@ export class Telemetry {
         const x = xOf(i), y = yOf(c.buf[i]);
         i === first ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
       }
-      ctx.strokeStyle = c.color; ctx.lineWidth = 1.1; ctx.stroke();
+      ctx.strokeStyle = col; ctx.lineWidth = 1.1; ctx.stroke();
 
       const last = c.buf[N - 1];
       if (!Number.isNaN(last)) {
         const y = yOf(last);
-        ctx.strokeStyle = c.color + '55';
+        ctx.strokeStyle = col + '55';
         ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w, y); ctx.stroke();
-        ctx.fillStyle = c.color;
+        ctx.fillStyle = col;
         ctx.beginPath(); ctx.arc(w - 2, y, 2, 0, 6.28); ctx.fill();
         c.out.textContent = last.toFixed(c.dp);
       }

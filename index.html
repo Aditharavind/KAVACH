@@ -26,6 +26,19 @@
         <div class="brand">KAVACH<i class="dev">कवच</i></div>
         <div class="brand-sub">INDIGENOUS UGV<span class="prog">PROG. KV-07</span></div>
       </div>
+      <div class="flag-wrap">
+        <svg class="flag" viewBox="0 0 36 24" role="img" aria-label="Flag of India">
+          <rect width="36" height="8" fill="#FF9933"/>
+          <rect y="8" width="36" height="8" fill="#FFFFFF"/>
+          <rect y="16" width="36" height="8" fill="#138808"/>
+          <g id="chakra" transform="translate(18 12)">
+            <circle r="3.3" fill="none" stroke="#000080" stroke-width="0.65"/>
+            <circle r="0.62" fill="#000080"/>
+          </g>
+          <rect x="0.25" y="0.25" width="35.5" height="23.5" fill="none" stroke="rgba(0,0,0,.35)" stroke-width="0.5"/>
+        </svg>
+        <span class="flag-cap">BHARAT</span>
+      </div>
     </div>
 
     <div class="hdr-title">
@@ -39,7 +52,14 @@
       <div class="chip"><div class="chip-txt"><span class="chip-k">DATA LINK</span><span class="chip-v" data-v="linkPctHdr">98%</span></div></div>
       <div class="chip"><div class="chip-txt"><span class="chip-k">SYSTEM TIME</span><span class="chip-v mono" data-v="sysTime">--:--:--</span></div></div>
       <div class="chip"><div class="chip-txt"><span class="chip-k">SESSION</span><span class="chip-v mono" data-v="sessTime">00:00:00</span></div></div>
+      <div class="chip chip-api"><span class="dot dot-off" id="apiDot"></span><div class="chip-txt"><span class="chip-k">API INGEST</span><span class="chip-v" data-v="apiState">OFFLINE</span></div></div>
       <div class="chip chip-sim"><span class="dot dot-sim"></span><div class="chip-txt"><span class="chip-k">MODE</span><span class="chip-v">SIMULATION</span></div></div>
+      <div class="chip chip-theme">
+        <div class="theme-sw" role="group" aria-label="Console theme">
+          <button class="tsw is-on" data-theme="graphite">GRAPHITE</button>
+          <button class="tsw" data-theme="daylight">DAYLIGHT</button>
+        </div>
+      </div>
     </div>
   </header>
 
@@ -54,6 +74,7 @@
         <button class="rtab" data-sec="nav" role="tab" aria-selected="false">NAV</button>
         <button class="rtab" data-sec="comm" role="tab" aria-selected="false">COMM</button>
         <button class="rtab" data-sec="subs" role="tab" aria-selected="false">SUBSYS</button>
+        <button class="rtab" data-sec="api" role="tab" aria-selected="false">API</button>
       </nav>
 
       <div class="rail-scroll">
@@ -127,6 +148,29 @@
           <div class="sec-hd"><h2>SUBSYSTEMS</h2><span class="sec-tag" data-v="subsTag">6 / 6 OK</span></div>
           <div class="subs" data-v-list="subs"></div>
         </section>
+        <section class="sec" data-sec="api">
+          <div class="sec-hd"><h2>TELEMETRY SOURCE</h2><span class="sec-tag" data-v="srcTag">LOCAL SIM</span></div>
+          <div class="api-io">
+            <label class="api-lb" for="apiUrl">INGEST ENDPOINT</label>
+            <div class="api-row">
+              <input id="apiUrl" class="api-url mono" spellcheck="false" autocomplete="off" />
+              <button class="api-go" id="apiConnect">LINK</button>
+            </div>
+          </div>
+          <div class="grid2 tight">
+            <div class="kv"><span class="k">STATE</span><span class="v" data-v="apiState2">OFFLINE</span></div>
+            <div class="kv"><span class="k">PACKETS</span><span class="v mono" data-v="apiPackets">0</span></div>
+            <div class="kv"><span class="k">LAST RX</span><span class="v mono" data-v="apiAge">--</span></div>
+            <div class="kv"><span class="k">OVERRIDES</span><span class="v mono" data-v="apiOv">0</span></div>
+          </div>
+          <div class="ov-list" data-v-list="overrides"><span class="ov-none">NO EXTERNAL FIELDS · SIMULATION IN CONTROL</span></div>
+          <button class="wbtn" id="apiRelease">RELEASE TO LOCAL SIM</button>
+          <div class="api-hint">
+            <span class="api-hint-k">PUSH VALUES</span>
+            <code class="mono" data-v="curlHint">curl -X POST .../api/telemetry -d '{"speed":18.4}'</code>
+          </div>
+        </section>
+
         <section class="sec sec-sum">
           <div class="sec-hd"><h2>AT A GLANCE</h2><span class="sec-tag" data-v="glanceTag">NOMINAL</span></div>
           <div class="glance">

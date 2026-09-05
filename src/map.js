@@ -3,6 +3,7 @@
 // generate the 3D feed, so the marker really is where the camera is.
 
 import { terrainH, track, clamp, rad, toLatLon, distToTrack } from './util.js';
+import { palette } from './theme.js';
 
 export const view = {
   cx: 0, cz: 0, mpp: 0.42, rot: 0,
@@ -97,7 +98,8 @@ export class TacticalMap {
     if (this.raster.width !== px) { this.raster.width = px; this.raster.height = px; }
     const g = this.rctx;
     g.setTransform(1, 0, 0, 1, 0, 0);
-    g.fillStyle = '#0B0E0B';
+    const P = palette.map;
+    g.fillStyle = P.bg;
     g.fillRect(0, 0, px, px);
 
     const x0 = view.cx - span / 2, z0 = view.cz - span / 2;
@@ -110,25 +112,36 @@ export class TacticalMap {
         if (h < lo) lo = h; if (h > hi) hi = h;
       }
     }
-    // relief shading, light from the north-west
-    for (let j = 0; j < n - 1; j++) {
-      for (let i = 0; i < n - 1; i++) {
+    // relief shading, lit from the north-west. Painted one pixel per sample
+    // into a small buffer and scaled up, so the shading reads as a smooth
+    // gradient instead of a grid of flat tiles.
+    if (!this.shade) { this.shade = document.createElement('canvas'); this.sctx = this.shade.getContext('2d'); }
+    if (this.shade.width !== n) { this.shade.width = n; this.shade.height = n; }
+    const img = this.sctx.createImageData(n, n);
+    const R = P.relief;
+    for (let j = 0; j < n; j++) {
+      for (let i = 0; i < n; i++) {
         const h = hs[j * n + i];
-        const gx = hs[j * n + i + 1] - h, gz = hs[(j + 1) * n + i] - h;
+        const gx = hs[j * n + Math.min(n - 1, i + 1)] - h;
+        const gz = hs[Math.min(n - 1, j + 1) * n + i] - h;
         const shade = clamp(0.5 + (-gx * 0.9 - gz * 0.9) * 1.5, 0, 1);
         const elev = clamp((h - lo) / Math.max(1e-3, hi - lo), 0, 1);
-        const r = 16 + shade * 26 + elev * 12;
-        const gr = 20 + shade * 28 + elev * 12;
-        const b = 15 + shade * 20 + elev * 8;
-        g.fillStyle = `rgb(${r | 0},${gr | 0},${b | 0})`;
-        g.fillRect(i * step, j * step, step + 1, step + 1);
+        const o = (j * n + i) * 4;
+        img.data[o] = R.base[0] + shade * R.shade[0] + elev * R.elev[0];
+        img.data[o + 1] = R.base[1] + shade * R.shade[1] + elev * R.elev[1];
+        img.data[o + 2] = R.base[2] + shade * R.shade[2] + elev * R.elev[2];
+        img.data[o + 3] = 255;
       }
     }
+    this.sctx.putImageData(img, 0, 0);
+    g.imageSmoothingEnabled = true;
+    g.imageSmoothingQuality = 'high';
+    g.drawImage(this.shade, 0, 0, n, n, 0, 0, n * step, n * step);
     // contour lines every 2 m (marching squares on the sampled grid)
     g.lineWidth = 1;
     for (let lv = Math.ceil(lo / 2) * 2; lv <= hi; lv += 2) {
       const major = Math.abs(lv % 10) < 0.001;
-      g.strokeStyle = major ? 'rgba(190,196,170,0.20)' : 'rgba(160,170,140,0.09)';
+      g.strokeStyle = major ? P.contourMajor : P.contourMinor;
       g.beginPath();
       for (let j = 0; j < n - 1; j++) {
         for (let i = 0; i < n - 1; i++) {
@@ -152,7 +165,7 @@ export class TacticalMap {
   }
 
   #ensureRaster() {
-    const key = `${Math.round(view.cx / 12)}|${Math.round(view.cz / 12)}|${view.mpp}|${this.w}|${this.h}`;
+    const key = `${Math.round(view.cx / 12)}|${Math.round(view.cz / 12)}|${view.mpp}|${this.w}|${this.h}|${palette.label}`;
     if (key === this.rKey) return;
     this.rKey = key;
     this.#buildRaster();
@@ -186,12 +199,13 @@ export class TacticalMap {
 
   // 100 m survey graticule with easting/northing ticks
   #grid(ctx) {
+    const P = palette.map;
     const stepM = view.mpp > 1.6 ? 500 : view.mpp > 0.6 ? 200 : 100;
     const span = Math.hypot(this.w, this.h) * view.mpp * 0.62;
     const sx = Math.floor((view.cx - span) / stepM) * stepM;
     const sz = Math.floor((view.cz - span) / stepM) * stepM;
     ctx.lineWidth = 1;
-    ctx.strokeStyle = 'rgba(149,168,95,0.09)';
+    ctx.strokeStyle = P.grid;
     ctx.beginPath();
     for (let x = sx; x < view.cx + span; x += stepM) {
       const a = this.toScreen(x, view.cz - span), b = this.toScreen(x, view.cz + span);
@@ -202,7 +216,7 @@ export class TacticalMap {
       ctx.moveTo(a[0], a[1]); ctx.lineTo(b[0], b[1]);
     }
     ctx.stroke();
-    ctx.fillStyle = 'rgba(122,133,120,0.55)';
+    ctx.fillStyle = P.gridLabel;
     ctx.font = '8px "IBM Plex Mono", monospace';
     for (let x = sx; x < view.cx + span; x += stepM) {
       const p = this.toScreen(x, view.cz);
@@ -225,27 +239,29 @@ export class TacticalMap {
   }
 
   #spurs(ctx) {
+    const P = palette.map;
     ctx.lineCap = 'round';
     for (const s of spurs) {
-      ctx.strokeStyle = 'rgba(96,88,64,0.55)';
+      ctx.strokeStyle = P.spur;
       ctx.lineWidth = Math.max(1.2, 2.6 / view.mpp * 0.6);
       this.#poly(ctx, s); ctx.stroke();
-      ctx.strokeStyle = 'rgba(140,128,92,0.22)';
+      ctx.strokeStyle = P.spurDash;
       ctx.lineWidth = 1; ctx.setLineDash([4, 6]);
       this.#poly(ctx, s); ctx.stroke(); ctx.setLineDash([]);
     }
   }
 
   #track(ctx, v) {
+    const P = palette.map;
     const w = clamp(3.8 / view.mpp, 1.6, 26);
     ctx.lineCap = 'round'; ctx.lineJoin = 'round';
-    ctx.strokeStyle = 'rgba(88,80,58,0.85)';
+    ctx.strokeStyle = P.trackCase;
     ctx.lineWidth = w + 2;
     this.#poly(ctx, track.pts); ctx.stroke();
-    ctx.strokeStyle = 'rgba(134,120,86,0.8)';
+    ctx.strokeStyle = P.trackFill;
     ctx.lineWidth = w;
     this.#poly(ctx, track.pts); ctx.stroke();
-    ctx.strokeStyle = 'rgba(196,182,142,0.16)';
+    ctx.strokeStyle = P.trackDash;
     ctx.lineWidth = 1; ctx.setLineDash([7, 9]);
     this.#poly(ctx, track.pts); ctx.stroke(); ctx.setLineDash([]);
 
@@ -260,10 +276,10 @@ export class TacticalMap {
       ctx.beginPath();
       ctx.moveTo(x, y - 4); ctx.lineTo(x + 4, y); ctx.lineTo(x, y + 4); ctx.lineTo(x - 4, y);
       ctx.closePath();
-      ctx.strokeStyle = auto && ahead ? 'rgba(224,139,54,0.85)' : 'rgba(149,168,95,0.45)';
+      ctx.strokeStyle = auto && ahead ? P.wpAhead : P.wp;
       ctx.lineWidth = 1.2; ctx.stroke();
       if (view.mpp < 0.9) {
-        ctx.fillStyle = auto && ahead ? 'rgba(224,139,54,0.75)' : 'rgba(122,133,120,0.6)';
+        ctx.fillStyle = auto && ahead ? P.wpLabelAhead : P.wpLabel;
         ctx.fillText(`WP${String(Math.round(p.s / 200)).padStart(2, '0')}`, x + 7, y + 3);
       }
     }
@@ -271,19 +287,20 @@ export class TacticalMap {
 
   #trail(ctx, v) {
     if (v.trail.length < 2) return;
+    const P = palette.map;
     ctx.lineJoin = 'round'; ctx.lineCap = 'round';
     // dark casing first, or the trail vanishes against the pale track
-    ctx.strokeStyle = 'rgba(18,24,14,0.85)';
+    ctx.strokeStyle = P.trailCase;
     ctx.lineWidth = 4.2;
     this.#poly(ctx, v.trail); ctx.stroke();
-    ctx.strokeStyle = 'rgba(139,158,88,0.9)';
+    ctx.strokeStyle = P.trail;
     ctx.lineWidth = 2.2;
     this.#poly(ctx, v.trail); ctx.stroke();
     // the last 60 fixes are the live tail
-    ctx.strokeStyle = 'rgba(186,208,124,0.95)';
+    ctx.strokeStyle = P.trailTail;
     ctx.lineWidth = 2;
     this.#poly(ctx, v.trail.slice(-60)); ctx.stroke();
-    ctx.fillStyle = 'rgba(216,230,180,0.9)';
+    ctx.fillStyle = P.trailDot;
     for (let i = v.trail.length - 1; i >= 0; i -= 6) {
       const [x, y] = this.toScreen(v.trail[i].x, v.trail[i].z);
       if (x < 0 || y < 0 || x > this.w || y > this.h) continue;
@@ -292,38 +309,40 @@ export class TacticalMap {
   }
 
   #places(ctx) {
+    const P = palette.map;
     ctx.font = '8.5px "Barlow Semi Condensed", sans-serif';
     for (const p of places) {
       const [x, y] = this.toScreen(p.x, p.z);
       if (x < -60 || y < -30 || x > this.w + 60 || y > this.h + 30) continue;
       if (p.t === 'base') {
-        ctx.strokeStyle = 'rgba(126,154,168,0.8)';
+        ctx.strokeStyle = P.node;
         ctx.lineWidth = 1.2;
         ctx.strokeRect(x - 5, y - 5, 10, 10);
         ctx.beginPath(); ctx.arc(x, y, 9, 0, 6.28); ctx.stroke();
       } else if (p.t === 'node') {
-        ctx.strokeStyle = 'rgba(126,154,168,0.65)';
+        ctx.strokeStyle = P.node;
         ctx.beginPath(); ctx.moveTo(x, y + 5); ctx.lineTo(x - 4, y - 4); ctx.lineTo(x + 4, y - 4); ctx.closePath(); ctx.stroke();
       } else {
-        ctx.strokeStyle = 'rgba(122,133,120,0.35)';
+        ctx.strokeStyle = P.area;
         ctx.setLineDash([3, 4]);
         ctx.strokeRect(x - 26, y - 14, 52, 28);
         ctx.setLineDash([]);
       }
-      ctx.fillStyle = 'rgba(176,186,168,0.75)';
+      ctx.fillStyle = P.placeLabel;
       ctx.fillText(p.n, x + 9, y - 6);
     }
   }
 
   #vehicle(ctx, v) {
+    const P = palette.map;
     const [x, y] = this.toScreen(v.x, v.z);
     const ang = rad(v.hdg) + view.rot;
 
     // GNSS accuracy disc
     const ar = Math.max(6, v.acc / view.mpp);
     ctx.beginPath(); ctx.arc(x, y, ar, 0, 6.28);
-    ctx.fillStyle = 'rgba(224,139,54,0.07)'; ctx.fill();
-    ctx.strokeStyle = 'rgba(224,139,54,0.32)'; ctx.lineWidth = 1; ctx.setLineDash([3, 3]);
+    ctx.fillStyle = P.accFill; ctx.fill();
+    ctx.strokeStyle = P.accLine; ctx.lineWidth = 1; ctx.setLineDash([3, 3]);
     ctx.stroke(); ctx.setLineDash([]);
 
     // heading vector, length scaled by speed
@@ -331,32 +350,33 @@ export class TacticalMap {
     ctx.beginPath();
     ctx.moveTo(x, y);
     ctx.lineTo(x + Math.sin(ang) * hl, y - Math.cos(ang) * hl);
-    ctx.strokeStyle = 'rgba(224,139,54,0.7)'; ctx.lineWidth = 1.2; ctx.stroke();
+    ctx.strokeStyle = P.heading; ctx.lineWidth = 1.2; ctx.stroke();
 
     // UGV icon: hull with two tracks
     ctx.save();
     ctx.translate(x, y); ctx.rotate(ang);
     const s = clamp(1.6 / view.mpp, 0.8, 3.4);
     ctx.scale(s, s);
-    ctx.fillStyle = '#12160F';
-    ctx.strokeStyle = '#E08B36'; ctx.lineWidth = 1.1 / s;
+    ctx.fillStyle = P.hull;
+    ctx.strokeStyle = P.hullEdge; ctx.lineWidth = 1.1 / s;
     ctx.beginPath();
     ctx.moveTo(0, -7); ctx.lineTo(3.4, -3.4); ctx.lineTo(3.4, 6); ctx.lineTo(-3.4, 6); ctx.lineTo(-3.4, -3.4);
     ctx.closePath(); ctx.fill(); ctx.stroke();
-    ctx.fillStyle = 'rgba(224,139,54,0.85)';
+    ctx.fillStyle = P.hullTrack;
     ctx.fillRect(-5, -4, 1.6, 9.5);
     ctx.fillRect(3.4, -4, 1.6, 9.5);
-    ctx.fillStyle = '#D8DDD1';
+    ctx.fillStyle = P.hullMark;
     ctx.fillRect(-1, -3, 2, 3.2);
     ctx.restore();
   }
 
   #frame(ctx) {
-    ctx.strokeStyle = 'rgba(48,56,41,0.9)';
+    const P = palette.map;
+    ctx.strokeStyle = P.frame;
     ctx.lineWidth = 1;
     ctx.strokeRect(0.5, 0.5, this.w - 1, this.h - 1);
     // corner ticks
-    ctx.strokeStyle = 'rgba(149,168,95,0.35)';
+    ctx.strokeStyle = P.tick;
     const t = 9;
     for (const [cx, cy, dx, dy] of [[0, 0, 1, 1], [this.w, 0, -1, 1], [0, this.h, 1, -1], [this.w, this.h, -1, -1]]) {
       ctx.beginPath();

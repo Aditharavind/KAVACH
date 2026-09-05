@@ -28,6 +28,20 @@ Below ~1500px the vehicle-health rail becomes tabbed and keeps an at-a-glance
 summary pinned beneath it; below ~1080px the console reflows into a single column
 with the camera first.
 
+## Themes
+
+Two schemes, switched from the header and remembered per browser:
+
+- **GRAPHITE** — the darkened field console (default).
+- **DAYLIGHT** — white and blue, for lit rooms and projected briefings.
+
+Both are driven from one token set in [`src/theme.js`](src/theme.js): CSS reads
+it through `[data-theme]`, and the map and telemetry canvases read the same
+values, so nothing drifts out of scheme. The virtual controller stays graphite
+in both — it represents a physical device, not a panel. The camera feed is a
+video image and keeps its own exposure; only the MAP view's overlays follow
+the theme, since that view is rendered rather than filmed.
+
 ## Operating it
 
 | Control | What it does |
@@ -41,6 +55,73 @@ with the camera first.
 
 `window.KAVACH` exposes the live vehicle state, map view and renderer for
 inspection from the console (`KAVACH.diag()`).
+
+## Feeding it real values — the Python API
+
+`api/kavach_api.py` is a small ingest service (standard library only, nothing to
+install). Start it, point the console's **API** panel at it, and anything that
+can make an HTTP request can drive what the console shows.
+
+```bash
+npm run api                              # or: python3 api/kavach_api.py
+python3 api/kavach_api.py --port 9000    # different port
+python3 api/kavach_api.py --host 127.0.0.1   # local only (default is 0.0.0.0)
+```
+
+The console links to `http://<its own hostname>:8000` automatically. Override it
+in the API panel, or with `?api=http://host:port` on the URL.
+
+| Method | Path | Purpose |
+| --- | --- | --- |
+| `GET` | `/` | usage document |
+| `GET` | `/api/health` | liveness, uptime, counters |
+| `GET` | `/api/state` | last known value for every field pushed |
+| `GET` | `/api/stream` | Server-Sent Events — what the console subscribes to |
+| `POST` | `/api/telemetry` | merge telemetry fields |
+| `POST` | `/api/control` | steer / throttle / mode |
+| `POST` | `/api/event` | append a line to the system event log |
+| `POST` | `/api/reset` | drop everything; the console returns to local simulation |
+
+```bash
+# move the needles
+curl -X POST http://localhost:8000/api/telemetry \
+  -H 'content-type: application/json' \
+  -d '{"speed":22.5,"soc":68,"rssi":-71,"temps":{"driveA":61},"source":"bench-rig-1"}'
+
+# drive the vehicle
+curl -X POST http://localhost:8000/api/control \
+  -H 'content-type: application/json' -d '{"steer":-0.4,"throttle":0.9}'
+
+# put a line in the event log
+curl -X POST http://localhost:8000/api/event \
+  -H 'content-type: application/json' -d '{"message":"BENCH RIG LINKED","severity":"ok"}'
+```
+
+A worked example that pushes a whole drive profile:
+
+```bash
+npm run api:demo                                    # localhost
+python3 api/send_demo.py --host 10.0.0.5 --drive    # a console elsewhere on the LAN
+```
+
+**Fields.** `speed` `heading` `soc` `volt` `amp` `watt` `rssi` `linkPct`
+`latency` `loss` `sats` `hdop` `acc` `pitch` `roll` `lat` `lon` `odo`,
+`temps.{battery,driveA,driveB,controller,ambient}`, plus `mode`
+(`MANUAL`/`ASSIST`/`AUTO`) and `source` (a name for whatever is pushing).
+Control takes `steer` and `throttle` in −1…1. Values outside a sensible range
+are clamped; unknown keys come back in `ignored` so a typo is obvious rather
+than silent.
+
+**How overrides behave.** A pushed field overrides the simulation *for as long
+as it keeps arriving* — 12 seconds after the last update it expires and the
+model resumes generating that field. So a producer that only sends `soc` and
+`speed` leaves everything else running normally, and a producer that dies never
+strands the console on frozen numbers. `speed`, `heading` and `lat`/`lon` move
+the vehicle for real: the camera drives, the map marker moves and the breadcrumb
+extends. A `/api/control` command is ignored the moment the local operator
+touches the joystick — the person at the console always outranks the network.
+The API panel lists every field currently under external control, and
+**RELEASE TO LOCAL SIM** hands everything back.
 
 ## How it fits together
 
@@ -57,6 +138,10 @@ and event log always describe the same machine on the same piece of ground.
 | `src/joystick.js` | Pointer / touch / keyboard input with sprung return |
 | `src/events.js` | System event log: heartbeats plus state-change events raised by the model |
 | `src/ui.js` | Binds vehicle state into the panels at 10 Hz |
+| `src/theme.js` | The two console schemes, for CSS and canvas alike |
+| `src/remote.js` | SSE client for the ingest API, with reconnect and override expiry |
+| `api/kavach_api.py` | The ingest service — stdlib HTTP, SSE fan-out, validation |
+| `api/send_demo.py` | Example producer: a full drive profile over the API |
 
 ### Simulation notes
 
@@ -66,5 +151,7 @@ and event log always describe the same machine on the same piece of ground.
 - Coordinates are simulated around a fictional field-test range origin
   (10.0124° N, 76.2972° E). No real facility is depicted.
 - No real Indian military or government insignia are used anywhere in the interface.
+  The national flag is shown at its correct 3:2 proportion with a 24-spoke chakra,
+  displayed as an identity mark and never stretched, tinted or used as a background.
 
 Designed & engineered in India.

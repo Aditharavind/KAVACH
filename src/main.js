@@ -11,6 +11,14 @@ import { Panels } from './ui.js';
 import { initLog, logEvent, tickEvents } from './events.js';
 import { step, veh, MODES } from './sim.js';
 import { rad } from './util.js';
+import { applyTheme, storedTheme, THEMES } from './theme.js';
+import {
+  remote, connectRemote, disconnectRemote, releaseRemote,
+  defaultApiUrl, activeFields, lastRxAge,
+} from './remote.js';
+
+// theme first: the canvases read their palette at construction time
+applyTheme(storedTheme());
 
 // ── build ──
 const camStage = document.getElementById('camStage');
@@ -27,6 +35,72 @@ const panels = new Panels();
 initLog(document.getElementById('log'), document.querySelector('[data-v="evtCount"]'));
 
 let camMode = 'cam1';
+
+// ── national flag: 24-spoke Ashoka Chakra, drawn to proportion ──
+(() => {
+  const g = document.getElementById('chakra');
+  if (!g) return;
+  const ns = 'http://www.w3.org/2000/svg';
+  for (let i = 0; i < 24; i++) {
+    const a = (i * Math.PI) / 12;
+    const line = document.createElementNS(ns, 'line');
+    line.setAttribute('x1', (Math.cos(a) * 0.62).toFixed(3));
+    line.setAttribute('y1', (Math.sin(a) * 0.62).toFixed(3));
+    line.setAttribute('x2', (Math.cos(a) * 3.3).toFixed(3));
+    line.setAttribute('y2', (Math.sin(a) * 3.3).toFixed(3));
+    line.setAttribute('class', 'chakra-spoke');
+    g.appendChild(line);
+  }
+})();
+
+// ── theme switch ──
+document.querySelectorAll('.tsw').forEach((b) => {
+  b.classList.toggle('is-on', b.dataset.theme === storedTheme());
+  b.addEventListener('click', () => {
+    const name = applyTheme(b.dataset.theme);
+    document.querySelectorAll('.tsw').forEach((o) => o.classList.toggle('is-on', o.dataset.theme === name));
+    logEvent(`CONSOLE THEME → ${THEMES[name].label}`, 'note');
+  });
+});
+
+// ── external ingest wiring ──
+const apiUrlEl = document.getElementById('apiUrl');
+const apiBtn = document.getElementById('apiConnect');
+apiUrlEl.value = defaultApiUrl();
+
+function apiButtonState() {
+  const live = remote.status === 'live' || remote.status === 'connecting';
+  apiBtn.textContent = live ? 'UNLINK' : 'LINK';
+  apiBtn.classList.toggle('is-on', live);
+}
+apiBtn.addEventListener('click', () => {
+  if (remote.status === 'offline') {
+    connectRemote(apiUrlEl.value.trim() || defaultApiUrl());
+    logEvent(`INGEST LINK REQUESTED · ${remote.url}`, 'note');
+  } else {
+    disconnectRemote();
+    releaseRemote();
+    logEvent('INGEST LINK CLOSED · LOCAL SIM', 'warn');
+  }
+  apiButtonState();
+});
+apiUrlEl.addEventListener('keydown', (e) => { if (e.key === 'Enter') apiBtn.click(); });
+document.addEventListener('kavach:api', (e) => {
+  apiButtonState();
+  if (e.detail === 'live') logEvent(`EXTERNAL TELEMETRY LINK LIVE · ${remote.url}`, 'ok');
+  if (e.detail === 'error') logEvent('INGEST STREAM INTERRUPTED · RETRYING', 'warn');
+});
+document.getElementById('apiRelease').addEventListener('click', () => {
+  releaseRemote();
+  // clear the service's retained state too, so a reconnect starts clean
+  if (remote.url) {
+    fetch(`${remote.url}/api/reset`, { method: 'POST' }).catch(() => { /* service may be down */ });
+  }
+  logEvent('EXTERNAL OVERRIDES RELEASED · LOCAL SIM IN CONTROL', 'note');
+});
+// try the default endpoint once at boot; it fails quietly when nothing is listening
+connectRemote(defaultApiUrl());
+apiButtonState();
 
 // ── camera feed tabs ──
 document.querySelectorAll('.ctab').forEach((b) => {
@@ -142,6 +216,21 @@ function frame(now) {
   const v = step(dt, input);
   tickEvents(v, dt);
 
+  // events pushed through the API, and any mode it asked for
+  while (remote.pendingEvents.length) {
+    const ev = remote.pendingEvents.shift();
+    logEvent(ev.message, ev.severity);
+  }
+  if (remote.pendingMode) {
+    const want = remote.pendingMode;
+    remote.pendingMode = null;
+    if (MODES[want] && want !== veh.mode) {
+      veh.mode = want;
+      document.querySelectorAll('.mode').forEach((o) => o.classList.toggle('is-on', o.dataset.mode === want));
+      logEvent(`CONTROL MODE → ${want} · COMMANDED BY API`, 'warn');
+    }
+  }
+
   if (view.follow) { view.cx = v.x; view.cz = v.z; }
   view.rot = view.northUp ? 0 : -rad(v.hdg);
 
@@ -161,7 +250,10 @@ function frame(now) {
   telAcc += dt;
   if (telAcc > 1 / 8) { telAcc = 0; tel.draw(); }
   uiAcc += dt;
-  if (uiAcc > 1 / 10) { uiAcc = 0; panels.update(v, camMode); }
+  if (uiAcc > 1 / 10) {
+    uiAcc = 0;
+    panels.update(v, camMode, { fields: activeFields(), age: lastRxAge(), url: apiUrlEl.value });
+  }
 
   requestAnimationFrame(frame);
 }
@@ -169,7 +261,8 @@ requestAnimationFrame(frame);
 
 // console handle for inspecting the simulation while it runs
 window.KAVACH = {
-  veh, view, sim, map,
+  veh, view, sim, map, remote,
+  setTheme: applyTheme,
   diag: () => ({ fps, camMode, mode: veh.mode, speed: +veh.speed.toFixed(2), soc: +veh.soc.toFixed(2), odo: +veh.odo.toFixed(1) }),
 };
 window.__diag = window.KAVACH.diag;

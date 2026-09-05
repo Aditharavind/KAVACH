@@ -5,6 +5,7 @@
 import { pad, hhmmss, istNow, clamp, fmtLat, fmtLon } from './util.js';
 import { MODES, PACK_WH, geo } from './sim.js';
 import { view, scaleLabel } from './map.js';
+import { remote, TTL } from './remote.js';
 
 const F = {};
 document.querySelectorAll('[data-v]').forEach((el) => { F[el.dataset.v] = el; });
@@ -71,7 +72,7 @@ export class Panels {
     });
   }
 
-  update(v, cam) {
+  update(v, cam, api = { fields: [], age: Infinity, url: '' }) {
     const d = istNow();
     const clock = `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
     set('sysTime', `${clock} IST`);
@@ -235,6 +236,7 @@ export class Panels {
     set('modeNote', MODES[v.mode].note);
     set('spdLimit', `${MODES[v.mode].limit} KM/H`);
     set('ctlLink', linkOk ? 'ACTIVE' : 'DEGRADED');
+    set('cmdRate', v.commandedBy === 'OPERATOR' ? '50 Hz' : 'EXTERNAL');
     const bar = (id, val) => {
       const el = document.getElementById(id);
       if (!el) return;
@@ -259,6 +261,48 @@ export class Panels {
     set('glanceTag', Object.values(warnGl).some(Boolean) ? 'CHECK' : 'NOMINAL');
     if (F.glanceTag) F.glanceTag.style.color = Object.values(warnGl).some(Boolean) ? 'var(--warn)' : '';
 
-    set('footState', `KAVACH-07 · ${v.mode} · ${linkOk ? 'LINK ACTIVE' : 'LINK DEGRADED'} · ${(v.odo / 1000).toFixed(2)} KM · SOC ${v.soc.toFixed(0)}%`);
+    // ── external ingest ──
+    const STATE_LABEL = { offline: 'OFFLINE', connecting: 'LINKING', live: 'LIVE', error: 'RETRYING' };
+    const label = STATE_LABEL[remote.status] || 'OFFLINE';
+    set('apiState', label);
+    set('apiState2', label);
+    set('apiPackets', String(remote.packets));
+    set('apiAge', api.age === Infinity ? '--' : `${api.age.toFixed(1)} s`);
+    set('apiOv', String(api.fields.length));
+    const dot = document.getElementById('apiDot');
+    if (dot) dot.className = `dot ${remote.status === 'live' ? 'dot-api' : remote.status === 'error' ? 'dot-rec' : 'dot-off'}`;
+    for (const k of ['apiState', 'apiState2']) {
+      if (F[k]) F[k].style.color = remote.status === 'live' ? 'var(--steel)' : remote.status === 'error' ? 'var(--warn)' : '';
+    }
+    set('srcTag', api.fields.length
+      ? `EXTERNAL · ${remote.source || 'API'}`
+      : remote.status === 'live' ? 'API LINKED · NO FIELDS' : 'LOCAL SIM');
+    if (this.ovKey !== api.fields.join(',')) {
+      this.ovKey = api.fields.join(',');
+      const host = document.querySelector('[data-v-list="overrides"]');
+      host.textContent = '';
+      if (!api.fields.length) {
+        const none = document.createElement('span');
+        none.className = 'ov-none';
+        none.textContent = remote.status === 'live'
+          ? `LINKED · WAITING FOR VALUES · OVERRIDES EXPIRE AFTER ${TTL}s`
+          : 'NO EXTERNAL FIELDS · SIMULATION IN CONTROL';
+        host.appendChild(none);
+      } else {
+        for (const f of api.fields) {
+          const chip = document.createElement('span');
+          chip.className = 'ov-chip';
+          chip.textContent = f;
+          host.appendChild(chip);
+        }
+      }
+    }
+    if (this.hintKey !== api.url) {
+      this.hintKey = api.url;
+      set('curlHint', `curl -X POST ${api.url}/api/telemetry -H 'content-type: application/json' -d '{"speed":18.4,"soc":72}'`);
+    }
+    set('inpHz', v.commandedBy === 'OPERATOR' ? '50 Hz' : 'API CMD');
+
+    set('footState', `KAVACH-07 · ${v.mode} · ${linkOk ? 'LINK ACTIVE' : 'LINK DEGRADED'} · ${(v.odo / 1000).toFixed(2)} KM · SOC ${v.soc.toFixed(0)}% · ${api.fields.length ? `${api.fields.length} FIELDS FROM ${v.source || 'API'}` : 'LOCAL SIM'}`);
   }
 }

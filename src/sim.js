@@ -5,8 +5,9 @@
 
 import {
   clamp, dmp, rad, deg, terrainH, terrainNormalY,
-  nearestTrack, ensureTrack, track, toLatLon,
+  nearestTrack, ensureTrack, track, toLatLon, fromLatLon,
 } from './util.js';
+import { fresh, controlFresh, remote } from './remote.js';
 
 export const MODES = {
   MANUAL: { limit: 32, note: 'DIRECT OPERATOR CONTROL · NO PATH ASSIST', tag: 'OPERATOR' },
@@ -39,11 +40,25 @@ export const veh = {
   t: 0,
   recBuf: 64,
   frameLat: 42,
+  // external ingest
+  overrides: [],
+  source: null,
+  commandedBy: 'OPERATOR',
 };
 
-let trailAcc = 0;
 let gnssT = 0;
 let linkT = 0;
+
+// ── external override plumbing ─────────────────────────────────────────
+// A pushed field wins over the model while it keeps arriving. `ovList` is
+// rebuilt every step so the UI can show exactly what is externally driven.
+let ovList = [];
+function ov(name) {
+  const v = fresh(name);
+  if (v === null) return null;
+  ovList.push(name);
+  return v;
+}
 
 // ─── mode shaping + autopilot ─────────────────────────────────────────
 function applyDeadZone(v) {
@@ -70,8 +85,16 @@ function autopilot(dt) {
 }
 
 // ─── main step ────────────────────────────────────────────────────────
-export function step(dt, input) {
+export function step(dt, stickInput) {
   veh.t += dt;
+  ovList = [];
+
+  // a remote /api/control command drives the vehicle whenever the operator
+  // is not touching the stick — the local operator always outranks it
+  const rc = controlFresh();
+  const stickIdle = Math.hypot(stickInput.x, stickInput.y) < 0.02;
+  const input = (rc && stickIdle && veh.mode !== 'AUTO') ? { x: rc.steer, y: rc.throttle } : stickInput;
+  veh.commandedBy = input === stickInput ? 'OPERATOR' : `API · ${remote.source || 'EXTERNAL'}`;
   veh.rawX = input.x;
   veh.rawY = input.y;
 
@@ -100,15 +123,32 @@ export function step(dt, input) {
   veh.speed = dmp(veh.speed, target, rate / 6, dt);
   if (Math.abs(veh.speed) < 0.05) veh.speed = 0;
 
+  const rSpeed = ov('speed');
+  if (rSpeed !== null) veh.speed = rSpeed;
+
   const speedFac = 0.34 + 0.66 * Math.min(1, Math.abs(veh.speed) / 17);
   const yaw = veh.steer * 44 * speedFac * (veh.speed < -0.4 ? -1 : 1);
   veh.hdg = (veh.hdg + yaw * dt + 360) % 360;
+  const rHdg = ov('heading');
+  if (rHdg !== null) veh.hdg = ((rHdg % 360) + 360) % 360;
 
   const mps = veh.speed / 3.6;
   const th = rad(veh.hdg);
   veh.x += Math.sin(th) * mps * dt;
   veh.z -= Math.cos(th) * mps * dt;
   veh.odo += Math.abs(mps) * dt;
+
+  // a pushed fix places the vehicle directly; ease into it so the camera
+  // and map pan rather than teleport
+  const rLat = ov('lat'), rLon = ov('lon');
+  if (rLat !== null || rLon !== null) {
+    const here = toLatLon(veh.x, veh.z);
+    const tgt = fromLatLon(rLat ?? here.lat, rLon ?? here.lon);
+    veh.x = dmp(veh.x, tgt.x, 6, dt);
+    veh.z = dmp(veh.z, tgt.z, 6, dt);
+  }
+  const rOdo = ov('odo');
+  if (rOdo !== null) veh.odo = rOdo;
 
   // skid-steer track speeds, shown on the input monitor
   veh.trackL = clamp(veh.throttle + veh.steer * 0.7, -1, 1);
@@ -122,6 +162,8 @@ export function step(dt, input) {
   const rollT = deg(Math.atan(g.gx * Math.cos(th) + g.gz * Math.sin(th)));
   veh.pitch = dmp(veh.pitch, pitchT, 4, dt);
   veh.roll = dmp(veh.roll, rollT, 4, dt);
+  const rPitch = ov('pitch'); if (rPitch !== null) veh.pitch = rPitch;
+  const rRoll = ov('roll'); if (rRoll !== null) veh.roll = rRoll;
   veh.slip = Math.abs(veh.steer) * Math.abs(veh.speed) * 0.021 + Math.abs(veh.roll) * 0.02;
 
   // ── route position ──
@@ -131,10 +173,9 @@ export function step(dt, input) {
   veh.trackS = track.pts[nt.i].s;
   veh.offTrack = nt.dist;
 
-  // ── breadcrumb ──
-  trailAcc += Math.abs(mps) * dt;
-  if (trailAcc > 1.6) {
-    trailAcc = 0;
+  // ── breadcrumb, measured off actual travel so pushed fixes count too ──
+  const tail = veh.trail[veh.trail.length - 1];
+  if (!tail || Math.hypot(veh.x - tail.x, veh.z - tail.z) > 1.6) {
     veh.trail.push({ x: veh.x, z: veh.z });
     if (veh.trail.length > 1400) veh.trail.shift();
   }
@@ -149,6 +190,10 @@ export function step(dt, input) {
   veh.amp = -veh.watt / veh.volt + veh.regen;
   // 3× accelerated discharge so the trend is visible inside a demo session
   veh.soc = clamp(veh.soc - ((veh.watt * dt) / 3600 / PACK_WH) * 100 * 3, 0, 100);
+  for (const [name, set] of [
+    ['watt', (x) => { veh.watt = x; }], ['soc', (x) => { veh.soc = x; }],
+    ['volt', (x) => { veh.volt = x; }], ['amp', (x) => { veh.amp = x; }],
+  ]) { const x = ov(name); if (x !== null) set(x); }
   veh.cellDelta = dmp(veh.cellDelta, 12 + Math.abs(veh.watt) / 62, 0.5, dt);
 
   // ── thermal ──
@@ -160,6 +205,10 @@ export function step(dt, input) {
   T.driveB = dmp(T.driveB, dTarget + clamp(-veh.steer, 0, 1) * 5.5, 0.06, dt);
   T.controller = dmp(T.controller, T.ambient + 6 + duty * 15, 0.05, dt);
   T.battery = dmp(T.battery, T.ambient + 4 + duty * 12, 0.03, dt);
+  for (const key of ['battery', 'driveA', 'driveB', 'controller', 'ambient']) {
+    const x = ov(`temps.${key}`);
+    if (x !== null) T[key] = x;
+  }
 
   // ── radio link, degrades with range from the control station at origin ──
   linkT += dt;
@@ -178,6 +227,12 @@ export function step(dt, input) {
     veh.recBuf = clamp(veh.recBuf + (Math.random() - 0.45) * 1.6, 22, 96);
   }
 
+  for (const [name, set] of [
+    ['rssi', (x) => { veh.rssi = x; }], ['linkPct', (x) => { veh.linkPct = x; }],
+    ['latency', (x) => { veh.latency = x; veh.frameLat = Math.round(x * 0.92 + 4); }],
+    ['loss', (x) => { veh.loss = x; }],
+  ]) { const x = ov(name); if (x !== null) set(x); }
+
   // ── GNSS ──
   gnssT += dt;
   if (gnssT > 1) {
@@ -188,6 +243,16 @@ export function step(dt, input) {
     veh.acc = clamp(veh.hdop * 2.7 + Math.random() * 0.4, 0.7, 6.5);
     veh.fix = veh.sats >= 11 ? '3D' : veh.sats >= 7 ? '3D/DGPS' : '2D';
   }
+
+  for (const [name, set] of [
+    ['sats', (x) => { veh.sats = Math.round(x); }], ['hdop', (x) => { veh.hdop = x; }],
+    ['acc', (x) => { veh.acc = x; }],
+  ]) { const x = ov(name); if (x !== null) set(x); }
+  if (ovList.includes('sats')) veh.fix = veh.sats >= 11 ? '3D' : veh.sats >= 7 ? '3D/DGPS' : '2D';
+
+  veh.alt = ov('alt') ?? veh.alt;
+  veh.overrides = ovList;
+  veh.source = remote.source;
 
   return veh;
 }
